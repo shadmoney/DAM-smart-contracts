@@ -11,12 +11,12 @@ contract pvpEscrow is ReentrancyGuard {
     uint256 public damFee = 5;
     uint256 public devFee = 3;
     uint256 public daoFee = 2;
-    uint256 public totalItems = 0;
+    uint256 public totalgames = 0;
     uint256 public totalConfirmed = 0;
     uint256 public totalDisputed = 0;
 
-    mapping(uint256 => ItemStruct) private items;
-    mapping(address => ItemStruct[]) private itemsOf;
+    mapping(uint256 => gameStruct) private games;
+    mapping(address => gameStruct[]) private gamesOf;
     mapping(address => mapping(uint256 => bool)) public requested;
     mapping(uint256 => address) public ownerOf;
     mapping(uint256 => Available) public isAvailable;
@@ -33,9 +33,8 @@ contract pvpEscrow is ReentrancyGuard {
 
     enum Available { NO, YES }
 
-    struct ItemStruct {
-        uint256 itemId;
-        string purpose;
+    struct gameStruct {
+        uint256 gameId;
         uint256 amount;
         uint256 timestamp;
         address owner;
@@ -46,82 +45,78 @@ contract pvpEscrow is ReentrancyGuard {
     }
 
     event Action (
-        uint256 itemId,
+        uint256 gameId,
         string actionType,
         Status status,
         address indexed executor
     );
 
-    constructor(uint256 _escFee) {
+    constructor(uint256 _damFee) {
         escAcc = msg.sender;
         escBal = 0;
         escAvailBal = 0;
-        escFee = _escFee;
+        damFee = _damFee;
     }
 
-    function createItem(
-        string calldata purpose
-    ) payable external returns (bool) {
-        require(bytes(purpose).length > 0, "Purpose cannot be empty");
-        require(msg.value > 0 ether, "Item cannot be zero ethers");
+    function createLobby(uint256 amount) payable external returns (bool){
+        require(msg.value > 0 ether, "game cannot be zero ethers");
 
-        uint256 itemId = totalItems++;
-        ItemStruct storage item = items[itemId];
+        uint256 gameId = totalgames++;
+        gameStruct storage game = games[gameId];
 
-        item.itemId = itemId;
-        item.purpose = purpose;
-        item.amount = msg.value;
-        item.timestamp = block.timestamp;
-        item.owner = msg.sender;
-        item.status = Status.OPEN;
+        game.gameId = gameId;
+        game.amount = msg.value;
+        game.timestamp = block.timestamp;
+        game.owner = msg.sender;
+        game.status = Status.OPEN;
 
-        itemsOf[msg.sender].push(item);
-        ownerOf[itemId] = msg.sender;
-        isAvailable[itemId] = Available.YES;
+        gamesOf[msg.sender].push(game);
+        ownerOf[gameId] = msg.sender;
+        isAvailable[gameId] = Available.YES;
         escBal += msg.value;
 
         emit Action (
-            itemId,
-            "ITEM CREATED",
+            gameId,
+            "game CREATED",
             Status.OPEN,
             msg.sender
         );
         return true;
     }
 
-    function getItems()
+    function getgames()
         external
         view
-        returns (ItemStruct[] memory props) {
-        props = new ItemStruct[](totalItems);
+        returns (gameStruct[] memory props) {
+        props = new gameStruct[](totalgames);
 
-        for (uint256 i = 0; i < totalItems; i++) {
-            props[i] = items[i];
+        for (uint256 i = 0; i < totalgames; i++) {
+            props[i] = games[i];
         }
     }
 
-    function getItem(uint256 itemId)
+    function getgame(uint256 gameId)
         external
         view
-        returns (ItemStruct memory) {
-        return items[itemId];
+        returns (gameStruct memory) {
+        return games[gameId];
     }
 
-    function myItems()
+    function mygames()
         external
         view
-        returns (ItemStruct[] memory) {
-        return itemsOf[msg.sender];
+        returns (gameStruct[] memory) {
+        return gamesOf[msg.sender];
     }
 
-    function requestItem(uint256 itemId) external returns (bool) {
-        require(msg.sender != ownerOf[itemId], "Owner not allowed");
-        require(isAvailable[itemId] == Available.YES, "Item not available");
+    function requestgame(uint256 gameId) external returns (bool) {
+        require(msg.sender != ownerOf[gameId], "Owner not allowed");
+        require(isAvailable[gameId] == Available.YES, "game not available");
 
-        requested[msg.sender][itemId] = true;
+        requested[msg.sender][gameId] = true;
 
         emit Action (
-            itemId,
+            gameId,
             "REQUESTED",
             Status.OPEN,
             msg.sender
@@ -131,19 +126,19 @@ contract pvpEscrow is ReentrancyGuard {
     }
 
     function approveRequest(
-        uint256 itemId,
+        uint256 gameId,
         address provider
     ) external returns (bool) {
-        require(msg.sender == ownerOf[itemId], "Only owner allowed");
-        require(isAvailable[itemId] == Available.YES, "Item not available");
-        require(requested[provider][itemId], "Provider not on the list");
+        require(msg.sender == ownerOf[gameId], "Only owner allowed");
+        require(isAvailable[gameId] == Available.YES, "game not available");
+        require(requested[provider][gameId], "Player not on the list");
 
-        isAvailable[itemId] == Available.NO;
-        items[itemId].status = Status.PENDING;
-        items[itemId].provider = provider;
+        isAvailable[gameId] == Available.NO;
+        games[gameId].status = Status.PENDING;
+        games[gameId].provider = provider;
 
         emit Action (
-            itemId,
+            gameId,
             "APPROVED",
             Status.PENDING,
             msg.sender
@@ -152,16 +147,16 @@ contract pvpEscrow is ReentrancyGuard {
         return true;
     }
 
-    function performDelievery(uint256 itemId) external returns (bool) {
-        require(msg.sender == items[itemId].provider, "Service not awarded to you");
-        require(!items[itemId].provided, "Service already provided");
-        require(!items[itemId].confirmed, "Service already confirmed");
+    function performDelivery(uint256 gameId) external returns (bool) {
+        require(msg.sender == games[gameId].provider, "Game prize not awarded to you");
+        require(!games[gameId].provided, "Game prize already provided");
+        require(!games[gameId].confirmed, "Game prize confirmed");
 
-        items[itemId].provided = true;
-        items[itemId].status = Status.DELIVERY;
+        games[gameId].provided = true;
+        games[gameId].status = Status.DELIVERY;
 
         emit Action (
-            itemId,
+            gameId,
             "DELIVERY INTIATED",
             Status.DELIVERY,
             msg.sender
@@ -171,28 +166,28 @@ contract pvpEscrow is ReentrancyGuard {
     }
 
     function confirmDelivery(
-        uint256 itemId,
+        uint256 gameId,
         bool provided
     ) external returns (bool) {
-        require(msg.sender == ownerOf[itemId], "Only owner allowed");
-        require(items[itemId].provided, "Service not provided");
-        require(items[itemId].status != Status.REFUNDED, "Already refunded, create a new Item");
+        require(msg.sender == ownerOf[gameId], "Only owner allowed");
+        require(games[gameId].provided, "Game prize not provided");
+        require(games[gameId].status != Status.REFUNDED, "Already refunded, create a new game");
 
         if(provided) {
-            uint256 fee = (items[itemId].amount * escFee) / 100;
-            payTo(items[itemId].provider, (items[itemId].amount - fee));
-            escBal -= items[itemId].amount;
+            uint256 fee = (games[gameId].amount * damFee) / 100;
+            payTo(games[gameId].provider, (games[gameId].amount - fee));
+            escBal -= games[gameId].amount;
             escAvailBal += fee;
 
-            items[itemId].confirmed = true;
-            items[itemId].status = Status.CONFIRMED;
+            games[gameId].confirmed = true;
+            games[gameId].status = Status.CONFIRMED;
             totalConfirmed++;
         }else {
-           items[itemId].status = Status.DISPUTTED; 
+           games[gameId].status = Status.DISPUTTED; 
         }
 
         emit Action (
-            itemId,
+            gameId,
             "DISPUTTED",
             Status.DISPUTTED,
             msg.sender
@@ -201,17 +196,17 @@ contract pvpEscrow is ReentrancyGuard {
         return true;
     }
 
-    function refundItem(uint256 itemId) external returns (bool) {
+    function refundgame(uint256 gameId) external returns (bool) {
         require(msg.sender == escAcc, "Only Escrow allowed");
-        require(!items[itemId].confirmed, "Service already provided");
+        require(!games[gameId].confirmed, "Game prize already provided");
 
-        payTo(items[itemId].owner, items[itemId].amount);
-        escBal -= items[itemId].amount;
-        items[itemId].status = Status.REFUNDED;
+        payTo(games[gameId].owner, games[gameId].amount);
+        escBal -= games[gameId].amount;
+        games[gameId].status = Status.REFUNDED;
         totalDisputed++;
 
         emit Action (
-            itemId,
+            gameId,
             "REFUNDED",
             Status.REFUNDED,
             msg.sender
