@@ -8,7 +8,9 @@ contract pvpEscrow is ReentrancyGuard {
     address public escAcc;
     uint256 public escBal;
     uint256 public escAvailBal;
-    uint256 public escFee;
+    uint256 public damFee = 5;
+    uint256 public devFee = 3;
+    uint256 public daoFee = 2;
     uint256 public totalItems = 0;
     uint256 public totalConfirmed = 0;
     uint256 public totalDisputed = 0;
