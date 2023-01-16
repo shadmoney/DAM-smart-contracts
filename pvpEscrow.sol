@@ -1,13 +1,13 @@
-pragma solidity ^0.8.7;
+pragma solidity ^0.8.8;
 
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
 contract pvpEscrow is ReentrancyGuard {
     address public escAcc;
     uint256 public escBal;
-    uint256 public damFee = 5;
-    uint256 public devFee = 3;
-    uint256 public daoFee = 2;
+    uint256 public damFee;
+    uint256 public devFee;
+    uint256 public daoFee;
     uint256 public totalgames = 0;
     uint256 public totalConfirmed = 0;
     uint256 public totalDisputed = 0;
@@ -37,8 +37,6 @@ contract pvpEscrow is ReentrancyGuard {
         address owner;
         address provider;
         Status status;
-        bool provided;
-        bool confirmed;
     }
 
     event Action (
@@ -50,9 +48,13 @@ contract pvpEscrow is ReentrancyGuard {
 
     constructor() public {
         escAcc = msg.sender;
+        escBal = 0;
+        damFee = 5;
+        devFee = 3;
+        daoFee = 2;
     }
 
-    function createLobby(uint256 amount) payable public returns (bool) {
+    function createLobby(uint256 amount) payable external returns (bool) {
         require(msg.value >= amount, "game amount is less than required");
         require(damFee <= 10 && damFee >= 1, "Invalid damFee value");
         require(devFee <= 10 && devFee >= 1, "Invalid devFee value");
@@ -66,8 +68,6 @@ contract pvpEscrow is ReentrancyGuard {
         game.timestamp = block.timestamp;
         game.owner = msg.sender;
         game.status = Status.OPEN;
-        game.provided = false;
-        game.confirmed = false;
 
         gamesOf[msg.sender].push(game);
         ownerOf[gameId] = msg.sender;
@@ -84,5 +84,6 @@ contract pvpEscrow is ReentrancyGuard {
     }
 
     function getMyGames() external view returns (gameStruct[] memory) {
-        gameStruct[] memory myGames = new gameStruct[](gamesOf[msg.sender].length);
-        for (uint i = 0; i < gamesOf[msg
+    return gamesOf[msg.sender];
+    }
+}
